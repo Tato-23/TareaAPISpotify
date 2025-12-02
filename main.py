@@ -113,7 +113,7 @@ async def create_user(request: Request):
     
     #Usuario existe en base de datos
     mycursor = mydb.cursor(dictionary=True)
-    mycursor.execute(f"SELECT * FROM usuarios WHERE spotify_id='{spotify_id}'")
+    mycursor.execute(f"SELECT * FROM usuarios WHERE spotify_id='{spotify_id}' OR email='{email}'")
     existing_user = mycursor.fetchone()
     if existing_user:
         raise HTTPException(status_code=400, detail="El usuario con este Spotify ID o email ya existe")
