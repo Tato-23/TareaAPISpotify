@@ -100,17 +100,27 @@ async def create_user(request: Request):
     nombre = body.get("display_name") 
     email = body["email"]
     pais = body.get("pais")
-
+ 
     if user_profile:
         spotify_id = user_profile.get("id")
         nombre = user_profile.get("display_name")
         pais = user_profile.get("country")
     else:
         raise HTTPException(status_code=400, detail="Error obteniendo perfil de usuario con el token de acceso proporcionado")
-
-    mycursor = mydb.cursor()
-    mycursor.execute( f"INSERT INTO usuarios (spotify_id, nombre, email, pais) VALUES ('{spotify_id}', '{nombre}', '{email}', '{pais}')")
-    mydb.commit()
+    
+    if not spotify_id or not nombre or not email or not pais:
+        raise HTTPException(status_code=400, detail="Faltan datos obligatorios para crear el usuario")
+    
+    #Usuario existe en base de datos
+    mycursor = mydb.cursor(dictionary=True)
+    mycursor.execute(f"SELECT * FROM usuarios WHERE spotify_id='{spotify_id}'")
+    existing_user = mycursor.fetchone()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="El usuario con este Spotify ID o email ya existe")
+    else:
+        mycursor = mydb.cursor()
+        mycursor.execute( f"INSERT INTO usuarios (spotify_id, nombre, email, pais) VALUES ('{spotify_id}', '{nombre}', '{email}', '{pais}')")
+        mydb.commit()
     return JSONResponse(content={"message": "Usuario creado exitosamente"}, status_code=201)
 
 
@@ -126,10 +136,17 @@ async def update_user(user_id: int, user: User):
         database=os.getenv("DB_NAME")
     )
     mydb = await db_connection.get_connection()
-    spotify_id= user.spotify_id
-    nombre= user.nombre
-    email= user.email
-    pais= user.pais
+    if user_id <= 0:
+        raise HTTPException(status_code=400, detail="ID de usuario inválido")
+    
+    if not user.spotify_id or not user.nombre or not user.email or not user.pais:
+        raise HTTPException(status_code=400, detail="Faltan datos obligatorios para actualizar el usuario")
+    else:
+        spotify_id= user.spotify_id
+        nombre= user.nombre
+        email= user.email
+        pais= user.pais
+    
     mycursor = mydb.cursor()
     mycursor.execute( f"UPDATE usuarios SET spotify_id='{spotify_id}', nombre='{nombre}', email='{email}', pais='{pais}' WHERE id={user_id}")
     mydb.commit()
@@ -146,6 +163,13 @@ async def delete_user(user_id: int):
         database=os.getenv("DB_NAME")
     )
     mydb = await db_connection.get_connection()
+
+    if user_id <= 0:
+        raise HTTPException(status_code=400, detail="ID de usuario inválido")
+    
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Falta el ID de usuario para eliminar")
+    
     mycursor = mydb.cursor()
     mycursor.execute(f"DELETE FROM usuarios WHERE id={user_id}")
     mydb.commit()
