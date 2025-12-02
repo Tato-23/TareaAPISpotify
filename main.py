@@ -1,4 +1,6 @@
-#Tarea: Desarrollo API REST con FastAPI integrando base de datos MYSQL y Api externa Spotify
+"""API de FastAPI que gestiona OAuth de Spotify y la persistencia en MySQL."""
+
+# Tarea: Desarrollo API REST con FastAPI integrando base de datos MYSQL y Api externa Spotify
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -16,16 +18,18 @@ app = FastAPI()
 # Endpoint para obtener URL de autenticación de Spotify
 @app.get("/login")
 async def login():
+    """Devuelve la URL de autorización de Spotify para iniciar el flujo OAuth."""
     auth_url = get_auth_url()
     return {"auth_url": auth_url}
 
 # Endpoint para manejar el callback de Spotify
 @app.get("/callback")
 async def callback(code: str):
+    """Procesa el callback de Spotify e intercambia el código por tokens."""
     try:
         token_info = get_token(code)
         if not token_info:
-            raise HTTPException(status_code=400, detail="Error obtaining token")
+            raise HTTPException(status_code=400, detail="Error obteniendo token")
         return token_info
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error en callback: {str(e)}")
@@ -33,26 +37,29 @@ async def callback(code: str):
 
 @app.get("/profile")
 async def profile(authorization: str = Header()):
+    """Obtiene el perfil de Spotify para el usuario autenticado."""
     token = authorization.replace("Bearer ", "")
     user_profile = get_user_profile(token)
     if user_profile:
         return user_profile
     else:
-        raise HTTPException(status_code=400, detail="Error fetching user profile")
+        raise HTTPException(status_code=400, detail="Error obteniendo perfil de usuario")
 
 # Endpoint para refrescar el token de Spotify
 @app.get("/refresh_token")
 async def refresh_access_token(refresh_token_param: str):
+    """Renueva un token de acceso usando el refresh token proporcionado."""
     new_token_info = refresh_token(refresh_token_param)
     if new_token_info:
         return new_token_info
     else:
-        raise HTTPException(status_code=400, detail="Error refreshing token")
+        raise HTTPException(status_code=400, detail="Error renovando token")
     
 
 # GET Obtener Usuarios
 @app.get("/users")
 async def get_users():
+    """Recupera todos los usuarios almacenados en la base de datos MySQL."""
     db_connection = DatabaseConnection(
         host=os.getenv("DB_HOST"),
         user=os.getenv("DB_USER"),
@@ -67,6 +74,8 @@ async def get_users():
 
 # POST Crear Usuario
 class User(BaseModel):
+    """Modelo con los datos mínimos de usuario de Spotify almacenados localmente."""
+
     spotify_id: str
     nombre: str
     email: str
@@ -74,6 +83,7 @@ class User(BaseModel):
 
 @app.post("/users")
 async def create_user(request: Request):
+    """Crea un usuario con datos de Spotify y lo guarda en MySQL."""
     db_connection = DatabaseConnection(
         host=os.getenv("DB_HOST"),
         user=os.getenv("DB_USER"),
@@ -88,7 +98,7 @@ async def create_user(request: Request):
     user_profile = get_user_profile(access_token) 
     spotify_id = body.get("id") 
     nombre = body.get("display_name") 
-    email = body("email") 
+    email = body["email"]
     pais = body.get("pais")
 
     if user_profile:
@@ -96,7 +106,7 @@ async def create_user(request: Request):
         nombre = user_profile.get("display_name")
         pais = user_profile.get("country")
     else:
-        raise HTTPException(status_code=400, detail="Error fetching user profile with provided access token")
+        raise HTTPException(status_code=400, detail="Error obteniendo perfil de usuario con el token de acceso proporcionado")
 
     mycursor = mydb.cursor()
     mycursor.execute( f"INSERT INTO usuarios (spotify_id, nombre, email, pais) VALUES ('{spotify_id}', '{nombre}', '{email}', '{pais}')")
@@ -108,6 +118,7 @@ async def create_user(request: Request):
 #PUT Actualizar Usuario
 @app.put("/users/{user_id}")
 async def update_user(user_id: int, user: User):
+    """Actualiza un usuario existente con la información recibida."""
     db_connection = DatabaseConnection(
         host=os.getenv("DB_HOST"),
         user=os.getenv("DB_USER"),
@@ -127,6 +138,7 @@ async def update_user(user_id: int, user: User):
 #DELETE Eliminar Usuario
 @app.delete("/users/{user_id}")
 async def delete_user(user_id: int):
+    """Elimina un usuario de MySQL según su identificador."""
     db_connection = DatabaseConnection(
         host=os.getenv("DB_HOST"),
         user=os.getenv("DB_USER"),
@@ -142,6 +154,7 @@ async def delete_user(user_id: int):
 #GET Preferencias Musicales de Usuario desde Spotify
 @app.get("/preferences")
 async def get_user_preferences(authorization: str = Header()):
+    """Devuelve las canciones principales del usuario autenticado en Spotify."""
     token = authorization.replace("Bearer ", "")
     
     preferencias = get_top_tracks(token)
@@ -167,6 +180,7 @@ async def get_user_preferences(authorization: str = Header()):
 #Almacenar Preferencias Musicales en la Base de Datos
 @app.post("/preferences")
 async def store_user_preferences(authorization: str = Header()):
+    """Almacena en MySQL las canciones principales del usuario autenticado."""
     token = authorization.replace("Bearer ", "")
     
     preferencias = get_top_tracks(token)
@@ -206,6 +220,7 @@ async def store_user_preferences(authorization: str = Header()):
 # Get Preferencias Musicales desde la Base de Datos
 @app.get("/preferences/db")
 async def get_stored_preferences():
+    """Recupera todas las preferencias musicales almacenadas en MySQL."""
     db_connection = DatabaseConnection(
         host=os.getenv("DB_HOST"),
         user=os.getenv("DB_USER"),
