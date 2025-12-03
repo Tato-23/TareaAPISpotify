@@ -1,5 +1,7 @@
 * Cómo ejecutar los endpoints y conectarse al usuario de Spotify
 
+Debera generar la carpeta venv en el proyecto ya que al guardar en el repositorio git lo ignoran, tambien se elaboro un archivo de requirements.txt en el proyecto con los paquetes a instalar.
+
 Para que pueda usar la aplicación y visualizar tus canciones y artistas favoritos, es necesario que primero cree su propia aplicación en Spotify Developer. Esto permitirá obtener las credenciales necesarias para la autenticación.
 
 1. Iniciar sesión en Spotify Developer
