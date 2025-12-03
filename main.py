@@ -207,11 +207,22 @@ async def store_user_preferences(authorization: str = Header()):
     """Almacena en MySQL las canciones principales del usuario autenticado."""
     token = authorization.replace("Bearer ", "")
     
+    # 1. Obtener ID del usuario
+    user_profile = get_user_profile(token)
+    if not user_profile or "id" not in user_profile:
+        raise HTTPException(
+            status_code=401,
+            detail="No se pudo obtener el ID del usuario"
+        )
+
+    spotify_id = user_profile["id"]
+
+    # 2. Obtener preferencias
     preferencias = get_top_tracks(token)
     if not preferencias:
         raise HTTPException(
             status_code=401,
-            detail=f"Token inválido o no se pudieron obtener preferencias"
+            detail="Token inválido o no se pudieron obtener preferencias"
         )
 
     if "items" not in preferencias or len(preferencias["items"]) == 0:
@@ -220,6 +231,7 @@ async def store_user_preferences(authorization: str = Header()):
             detail="No hay canciones disponibles para este usuario"
         )
 
+    # 3. Guardar en MySQL
     db_connection = DatabaseConnection(
         host=os.getenv("DB_HOST"),
         user=os.getenv("DB_USER"),
@@ -232,19 +244,22 @@ async def store_user_preferences(authorization: str = Header()):
     for track in preferencias["items"]:
         track_name = track["name"]
         artist_name = track["artists"][0]["name"]
+
         mycursor.execute(
-            "INSERT INTO preferencias (track_name, artist) VALUES (%s, %s)",
-            (track_name, artist_name)
+            "INSERT INTO preferencias (spotify_id, track_name, artist) VALUES (%s, %s, %s)",
+            (spotify_id, track_name, artist_name)
         )
 
     mydb.commit()
 
-    return JSONResponse(content={"message": "Preferencias almacenadas exitosamente"})
+    return JSONResponse(content={
+        "message": "Preferencias almacenadas exitosamente"
+    })
 
 # Get Preferencias Musicales desde la Base de Datos
-@app.get("/preferences/db")
-async def get_stored_preferences():
-    """Recupera todas las preferencias musicales almacenadas en MySQL."""
+@app.get("/preferences/db/{spotify_id}")
+async def get_stored_preferences_by_user(spotify_id: str):
+    """Recupera las preferencias musicales de un usuario por su Spotify ID."""
     db_connection = DatabaseConnection(
         host=os.getenv("DB_HOST"),
         user=os.getenv("DB_USER"),
@@ -253,6 +268,17 @@ async def get_stored_preferences():
     )
     mydb = await db_connection.get_connection()
     mycursor = mydb.cursor(dictionary=True)
-    mycursor.execute("SELECT * FROM preferencias")
+
+    mycursor.execute(
+        "SELECT track_name, artist FROM preferencias WHERE spotify_id = %s",
+        (spotify_id,)
+    )
     preferencias = mycursor.fetchall()
-    return JSONResponse(content=preferencias)        
+
+    if not preferencias:
+        raise HTTPException(
+            status_code=404,
+            detail="No se encontraron preferencias para este usuario"
+        )
+
+    return JSONResponse(content=preferencias)       

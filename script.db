@@ -1,0 +1,16 @@
+Create database tareaapispotify;
+
+Create Table usuarios(
+id INT PRIMARY KEY auto_increment,
+spotify_id Varchar(50),
+nombre Varchar(100),
+email varchar(255),
+pais varchar(10)
+);
+
+Create Table preferencias(
+id INT PRIMARY KEY auto_increment,
+track_name varchar(100),
+artist Varchar(100),
+spotify_id VARCHAR(255) NOT NULL
+)
